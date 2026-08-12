@@ -74,7 +74,9 @@ module wrfhydro_nuopc_fields
                  "kg m-2 s-1",IMPORT_F,EXPORT_T ,0.00d0),                 &
     cap_fld_type("Flrr_volrmch                            ","volrmch ", &
                  "m     ",IMPORT_F,EXPORT_T ,0.00d0),                     &
-    cap_fld_type("Flrl_rofinfl_excess_sur                 ","infxsrt ", &
+    ! cap_fld_type("Flrl_rofinfl_excess_sur                 ","infxsrt ", &
+                 ! "kg m-2 s-1",IMPORT_T ,EXPORT_F,0.00d0),                 &
+    cap_fld_type("Flrl_rofexcess_sur                      ","infxsrt ", &
                  "kg m-2 s-1",IMPORT_T ,EXPORT_F,0.00d0),                 &
     cap_fld_type("Flrl_rofsub                              ","soldrain", &
                  "kg m-2 s-1",IMPORT_T ,EXPORT_F,0.00d0)                   &
