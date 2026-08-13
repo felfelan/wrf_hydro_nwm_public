@@ -741,7 +741,6 @@ contains
         call HYDRO_time_adv(did)
         call HYDRO_out(did, 1)
 
-
 !           write(90 + my_id,*) "finish calling hydro_exe"
 !           call flush(90+my_id)
 !          call mpp_land_sync()
@@ -751,8 +750,6 @@ contains
 !! Under channel-only, these variables are not allocated
         if(allocated(RT_DOMAIN(did)%SOLDRAIN)) RT_DOMAIN(did)%SOLDRAIN = 0
         if(allocated(rt_domain(did)%subsurface%state%qsubrt))   RT_DOMAIN(did)%subsurface%state%qsubrt   = 0
-
-
 
     end subroutine HYDRO_exe
 
@@ -1089,6 +1086,7 @@ contains
 #endif
 
 #ifdef HYDRO_D
+if (.FALSE.) then
 ! ADCHANGE: START Initial water balance variables
 ! ALL VARS in MM
         suminfxsrt1 = 0.
@@ -1097,7 +1095,7 @@ contains
             do j=1,RT_DOMAIN(did)%JXRT
                 suminfxsrt1 = suminfxsrt1 + rt_domain(did)%overland%control%surface_water_head_routing(I,J) &
                     / float(RT_DOMAIN(did)%IXRT * RT_DOMAIN(did)%JXRT)
-                do kk=1,nlst(did)%NSOIL
+                do kk=1,rt_domain(did)%subsurface%properties%bedrocklyr_rt(i,j)
                     smcrttot1 = smcrttot1 + rt_domain(did)%subsurface%grid_transform%smcrt(I,J,KK)*RT_DOMAIN(did)%subsurface%properties%sldpth(KK)*1000. &
                         / float(RT_DOMAIN(did)%IXRT * RT_DOMAIN(did)%JXRT)
                 end do
@@ -1111,6 +1109,7 @@ contains
         smcrttot1 = smcrttot1/float(numprocs)
 #endif
 ! END Initial water balance variables
+endif
 #endif
 
         do J=1,RT_DOMAIN(did)%JX
@@ -1119,7 +1118,7 @@ contains
                 RT_DOMAIN(did)%SFCHEADAGGRT = 0.
 !DJG Subgrid weighting edit...
                 RT_DOMAIN(did)%LSMVOL=0.
-                do KRT=1,nlst(did)%NSOIL
+                do KRT=1,rt_domain(did)%bedrocklyr(i,j)
 !                SMCAGGRT(KRT) = 0.
                     RT_DOMAIN(did)%SH2OAGGRT(KRT) = 0.
                 end do
@@ -1148,7 +1147,7 @@ contains
                             + rt_domain(did)%overland%control%surface_water_head_routing(IXXRT,JYYRT) &
                             * rt_domain(did)%overland%properties%distance_to_neighbor(IXXRT,JYYRT,9)
 
-                        do KRT=1,nlst(did)%NSOIL
+                        do KRT=1,rt_domain(did)%bedrocklyr(I,J)
 !DJG               SMCAGGRT(KRT)=SMCAGGRT(KRT)+SMCRT(IXXRT,JYYRT,KRT)
                             RT_DOMAIN(did)%SH2OAGGRT(KRT) = RT_DOMAIN(did)%SH2OAGGRT(KRT) &
                                 + rt_domain(did)%subsurface%grid_transform%smcrt(IXXRT,JYYRT,KRT)
@@ -1162,7 +1161,7 @@ contains
                 rt_domain(did)%overland%control%surface_water_head_lsm(I,J) = RT_DOMAIN(did)%SFCHEADAGGRT &
                     / (nlst(did)%AGGFACTRT**2)
 
-                do KRT=1,nlst(did)%NSOIL
+                do KRT=1,rt_domain(did)%bedrocklyr(I,J)
 !DJG              SMC(I,J,KRT)=SMCAGGRT(KRT)/(AGGFACTRT**2)
                     RT_DOMAIN(did)%SH2OX(I,J,KRT) = RT_DOMAIN(did)%SH2OAGGRT(KRT) &
                         / (nlst(did)%AGGFACTRT**2)
@@ -1194,7 +1193,7 @@ contains
                                 = 1./FLOAT(nlst(did)%AGGFACTRT**2)
                         end if
 
-                        do KRT=1,nlst(did)%NSOIL
+                        do KRT=1,rt_domain(did)%bedrocklyr(I,J)
 
 !!!yw added for debug
                             if(rt_domain(did)%subsurface%grid_transform%smcrt(IXXRT,JYYRT,KRT) .lt. 0) then
@@ -1264,7 +1263,6 @@ contains
             end do
         end do
 
-
 #ifdef MPP_LAND
         call MPP_LAND_COM_REAL(RT_DOMAIN(did)%INFXSWGT, &
             RT_DOMAIN(did)%IXRT,    &
@@ -1281,6 +1279,7 @@ contains
         RT_DOMAIN(did)%SMC = RT_DOMAIN(did)%SH2OX + RT_DOMAIN(did)%SICE
 
 #ifdef HYDRO_D
+if (.FALSE.) then
 ! ADCHANGE: START Final water balance variables
 ! ALL VARS in MM
         suminfxs2 = 0.
@@ -1290,7 +1289,7 @@ contains
             do j=1,RT_DOMAIN(did)%JX
                 suminfxs2 = suminfxs2 + rt_domain(did)%overland%control%surface_water_head_lsm(I,J) &
                     / float(RT_DOMAIN(did)%IX * RT_DOMAIN(did)%JX)
-                do kk=1,nlst(did)%NSOIL
+                do kk=1,rt_domain(did)%bedrocklyr(I,J)
                     smctot2 = smctot2 + rt_domain(did)%SMC(I,J,KK)*RT_DOMAIN(did)%subsurface%properties%sldpth(KK)*1000. &
                         / float(RT_DOMAIN(did)%IX * RT_DOMAIN(did)%JX)
                     sicetot2 = sicetot2 + rt_domain(did)%SICE(I,J,KK)*RT_DOMAIN(did)%subsurface%properties%sldpth(KK)*1000. &
@@ -1326,6 +1325,7 @@ contains
         endif
 #endif
 ! END Final water balance variables
+endif
 #endif
 
 #ifdef HYDRO_D
@@ -1818,9 +1818,10 @@ contains
 !ADCHANGE: Add some sanity checks in case calibration knocks the order of these out of sequence.
 !The min diffs were pulled from the existing HYDRO.TBL defaults.
 !Currently water is 0, so enforcing 0 as the absolute min.
+                    ! Relaxing diffs to maintain values below bedrock
                     rt_domain(did)%SMCMAX1(i,j) = min(rt_domain(did)%SMCMAX1(i,j), 1.0)
-                    rt_domain(did)%SMCREF1(i,j) = max(min(rt_domain(did)%SMCREF1(i,j), rt_domain(did)%SMCMAX1(i,j) - 0.01), 0.0)
-                    rt_domain(did)%SMCWLT1(i,j) = max(min(rt_domain(did)%SMCWLT1(i,j), rt_domain(did)%SMCREF1(i,j) - 0.01), 0.0)
+                    rt_domain(did)%SMCREF1(i,j) = max(min(rt_domain(did)%SMCREF1(i,j), rt_domain(did)%SMCMAX1(i,j)), 0.0)
+                    rt_domain(did)%SMCWLT1(i,j) = max(min(rt_domain(did)%SMCWLT1(i,j), rt_domain(did)%SMCREF1(i,j)), 0.0)
                     IF(rt_domain(did)%VEGTYP(i,j) > 0 ) THEN   ! created 2d ov_rough
                         rt_domain(did)%OV_ROUGH2d(i,j) = RT_DOMAIN(did)%OV_ROUGH(rt_domain(did)%VEGTYP(I,J))
                     endif
@@ -1841,8 +1842,9 @@ contains
                 endwhere
             endif
             where (rt_domain(did)%SMCMAX1 .gt. 1.0) rt_domain(did)%SMCMAX1 = 1.0
-            rt_domain(did)%SMCREF1 = max(min(rt_domain(did)%SMCREF1, rt_domain(did)%SMCMAX1 - 0.01), 0.0)
-            rt_domain(did)%SMCWLT1 = max(min(rt_domain(did)%SMCWLT1, rt_domain(did)%SMCREF1 - 0.01), 0.0)
+            ! Relaxing diffs to maintain values below bedrock
+            rt_domain(did)%SMCREF1 = max(min(rt_domain(did)%SMCREF1, rt_domain(did)%SMCMAX1), 0.0)
+            rt_domain(did)%SMCWLT1 = max(min(rt_domain(did)%SMCWLT1, rt_domain(did)%SMCREF1), 0.0)
         endif
 
         rt_domain(did)%soiltyp = soltyp
