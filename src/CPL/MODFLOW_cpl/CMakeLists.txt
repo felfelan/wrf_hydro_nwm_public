@@ -15,9 +15,9 @@ target_link_libraries(bmi_modflow
   modflow)
 
 # setup WRF-Hydro BMI Fortran drivers
-add_executable(modflow_hello_world.exe
+add_executable(wrfhydro_modflow
   wrf_hydro_nwm_modflow6_hello_world.f90)
-target_link_libraries(modflow_hello_world.exe
+target_link_libraries(wrfhydro_modflow
   bmi_wrf_hydro_nwm
   bmi_modflow
   modflow
